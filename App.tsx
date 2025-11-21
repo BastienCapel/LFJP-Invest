@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
   INITIAL_PROJECTS, 
   INITIAL_STUDENT_COUNT, 
@@ -18,7 +18,6 @@ import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, C
 
 // Firebase imports (Compat SDK)
 import { db } from './firebase';
-// Removed modular imports: import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const SIMULATION_DOC_ID = 'lfjp_current_simulation';
 const LOCAL_STORAGE_KEY = 'lfjp_invest_backup';
@@ -37,6 +36,9 @@ const App: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'connected' | 'offline' | 'error'>('offline');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
+  // Ref to track if the update comes from the DB to prevent echo-saving
+  const ignoreRemoteUpdate = useRef(false);
+
   // --- Integration Logic ---
 
   // 1. Load Data (Real-time Listener from Firebase)
@@ -67,6 +69,9 @@ const App: React.FC = () => {
         const exists = typeof docSnap.exists === 'function' ? docSnap.exists() : docSnap.exists;
 
         if (exists) {
+          // Indicate that the next state changes are from the DB, not the user
+          ignoreRemoteUpdate.current = true;
+
           const data = docSnap.data();
           if (data.projects) setProjects(data.projects);
           if (data.studentCount) setStudentCount(data.studentCount);
@@ -119,6 +124,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoading) return;
 
+    // STABILITY FIX: If the current change was triggered by the DB listener (onSnapshot),
+    // do not trigger a save back to the DB. Reset the flag and exit.
+    if (ignoreRemoteUpdate.current) {
+      ignoreRemoteUpdate.current = false;
+      return;
+    }
+
     const saveData = async () => {
       setIsSaving(true);
       const now = new Date();
@@ -154,7 +166,7 @@ const App: React.FC = () => {
       setIsSaving(false);
     };
 
-    const timeoutId = setTimeout(saveData, 1500); 
+    const timeoutId = setTimeout(saveData, 2000); // Increased debounce to 2s for better stability
     return () => clearTimeout(timeoutId);
   }, [projects, studentCount, feeRates, isLoading]);
 
@@ -163,7 +175,7 @@ const App: React.FC = () => {
       setProjects(INITIAL_PROJECTS);
       setStudentCount(INITIAL_STUDENT_COUNT);
       setFeeRates({});
-      // The useEffect will trigger the save automatically
+      // The useEffect will trigger the save automatically because this is a user action
     }
   };
 
