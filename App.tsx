@@ -16,8 +16,9 @@ import FeeSimulator from './components/FeeSimulator';
 import ProjectGantt from './components/ProjectGantt';
 import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, CheckCircle, AlertCircle, Loader2, CloudOff, HardDrive, ExternalLink } from 'lucide-react';
 
-// Firebase imports (v8 / Compat style)
+// Firebase imports (Compat SDK)
 import { db } from './firebase';
+// Removed modular imports: import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 const SIMULATION_DOC_ID = 'lfjp_current_simulation';
 const LOCAL_STORAGE_KEY = 'lfjp_invest_backup';
@@ -57,13 +58,15 @@ const App: React.FC = () => {
 
     setIsLoading(true);
     
-    // Listen to document changes in real-time using v8 syntax
+    // Listen to document changes in real-time using Compat SDK
     const docRef = db.collection("simulations").doc(SIMULATION_DOC_ID);
     
     const unsub = docRef.onSnapshot(
       (docSnap: any) => {
-        // Note: in v8 docSnap.exists is a boolean property, not a method
-        if (docSnap.exists) {
+        // Handle both compat (property) and possible function check for existence
+        const exists = typeof docSnap.exists === 'function' ? docSnap.exists() : docSnap.exists;
+
+        if (exists) {
           const data = docSnap.data();
           if (data.projects) setProjects(data.projects);
           if (data.studentCount) setStudentCount(data.studentCount);
@@ -129,7 +132,7 @@ const App: React.FC = () => {
       // 1. Always save to LocalStorage first (instant backup)
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
 
-      // 2. Try saving to Firebase using v8 syntax
+      // 2. Try saving to Firebase using Compat SDK
       if (db) {
         try {
             const docRef = db.collection("simulations").doc(SIMULATION_DOC_ID);

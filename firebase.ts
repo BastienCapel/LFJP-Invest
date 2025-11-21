@@ -1,6 +1,6 @@
 
-import firebase from "firebase/app";
-import "firebase/firestore";
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 // Configuration provided by the user
 const firebaseConfig = {
@@ -13,10 +13,6 @@ const firebaseConfig = {
   measurementId: "G-7EDM596N7M"
 };
 
-// Initialize Firebase
-// Check if firebase is already initialized to avoid errors in hot reload
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-
-export const db = firebase.firestore();
+// Initialize Firebase (Compat SDK)
+const app = firebase.initializeApp(firebaseConfig);
+export const db = app.firestore();
