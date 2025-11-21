@@ -27,7 +27,7 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
   let currentRunningRevenue = globalRevenue;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
       <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-orange-100">
         <div className="flex items-center gap-2 mb-1">
           <div className="p-1.5 bg-orange-100 text-orange-600 rounded-lg">
@@ -40,7 +40,7 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="p-4">
         <div className="space-y-3">
           {years.map(year => {
             const rate = feeRates[year] || 0;
@@ -75,14 +75,14 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
             );
           })}
         </div>
-      </div>
 
-      <div className="p-4 bg-slate-50 border-t border-slate-200">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium text-slate-600">Cumul généré</span>
-          <span className={`font-bold text-lg ${totalExtraRevenue >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-            {formatMoney(totalExtraRevenue)}
-          </span>
+        <div className="mt-4 pt-3 border-t border-slate-100">
+            <div className="flex justify-between items-center px-1">
+            <span className="text-sm font-medium text-slate-600">Cumul généré</span>
+            <span className={`font-bold text-lg ${totalExtraRevenue >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                {formatMoney(totalExtraRevenue)}
+            </span>
+            </div>
         </div>
       </div>
     </div>

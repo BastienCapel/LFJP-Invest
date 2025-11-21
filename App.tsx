@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   INITIAL_PROJECTS, 
   INITIAL_STUDENT_COUNT, 
@@ -13,12 +13,156 @@ import { Project, YearlyFinancials, SimulationSummary } from './types';
 import ProjectCard from './components/ProjectCard';
 import FinancialChart from './components/FinancialChart';
 import FeeSimulator from './components/FeeSimulator';
-import { Wallet, TrendingDown, Users, Calculator, Building2 } from 'lucide-react';
+import ProjectGantt from './components/ProjectGantt';
+import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, CheckCircle, AlertCircle, Loader2, CloudOff, HardDrive, ExternalLink } from 'lucide-react';
+
+// Firebase imports (v8 / Compat style)
+import { db } from './firebase';
+
+const SIMULATION_DOC_ID = 'lfjp_current_simulation';
+const LOCAL_STORAGE_KEY = 'lfjp_invest_backup';
 
 const App: React.FC = () => {
+  // --- State ---
+
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [studentCount, setStudentCount] = useState<number>(INITIAL_STUDENT_COUNT);
   const [feeRates, setFeeRates] = useState<Record<number, number>>({});
+  
+  // Persistence State
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [dbStatus, setDbStatus] = useState<'connected' | 'offline' | 'error'>('offline');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // --- Integration Logic ---
+
+  // 1. Load Data (Real-time Listener from Firebase)
+  useEffect(() => {
+    if (!db) {
+        // Fallback if DB init failed entirely
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (local) {
+             try {
+                const parsed = JSON.parse(local);
+                if (parsed.projects) setProjects(parsed.projects);
+                if (parsed.studentCount) setStudentCount(parsed.studentCount);
+                if (parsed.feeRates) setFeeRates(parsed.feeRates);
+            } catch(e) {}
+        }
+        setIsLoading(false);
+        return;
+    }
+
+    setIsLoading(true);
+    
+    // Listen to document changes in real-time using v8 syntax
+    const docRef = db.collection("simulations").doc(SIMULATION_DOC_ID);
+    
+    const unsub = docRef.onSnapshot(
+      (docSnap: any) => {
+        // Note: in v8 docSnap.exists is a boolean property, not a method
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          if (data.projects) setProjects(data.projects);
+          if (data.studentCount) setStudentCount(data.studentCount);
+          if (data.feeRates) setFeeRates(data.feeRates);
+          
+          setDbStatus('connected');
+          setErrorMessage(null);
+          setLastSaved(new Date()); // Assume synced if we just got data
+          
+          // Also update local storage as backup
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        } else {
+          // Doc doesn't exist yet, create it with defaults later (on save)
+          setDbStatus('connected');
+        }
+        setIsLoading(false);
+      },
+      (error: any) => {
+        console.error("Firebase Error:", error);
+        
+        // Handle Permission Denied specifically
+        if (error.code === 'permission-denied') {
+            setErrorMessage("Accès refusé. Veuillez vérifier les règles de sécurité dans la console Firebase (mettre 'allow read, write: if true').");
+        } else if (error.code === 'unavailable') {
+            setErrorMessage("Hors ligne. Passage en mode local.");
+            setDbStatus('offline');
+        } else {
+            setErrorMessage(error.message);
+            setDbStatus('error');
+        }
+
+        // Fallback to LocalStorage
+        const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localData) {
+            try {
+                const parsed = JSON.parse(localData);
+                if (parsed.projects) setProjects(parsed.projects);
+                if (parsed.studentCount) setStudentCount(parsed.studentCount);
+                if (parsed.feeRates) setFeeRates(parsed.feeRates);
+            } catch (e) {}
+        }
+        setIsLoading(false);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  // 2. Save Data (Debounced)
+  useEffect(() => {
+    if (isLoading) return;
+
+    const saveData = async () => {
+      setIsSaving(true);
+      const now = new Date();
+      const dataToSave = {
+          projects,
+          studentCount,
+          feeRates,
+          updatedAt: now.toISOString()
+      };
+
+      // 1. Always save to LocalStorage first (instant backup)
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+
+      // 2. Try saving to Firebase using v8 syntax
+      if (db) {
+        try {
+            const docRef = db.collection("simulations").doc(SIMULATION_DOC_ID);
+            await docRef.set(dataToSave);
+            setDbStatus('connected');
+            setErrorMessage(null);
+            setLastSaved(now);
+        } catch (error: any) {
+            console.error("Save failed", error);
+            if (error.code === 'permission-denied') {
+                setDbStatus('error');
+                setErrorMessage("Permission refusée lors de la sauvegarde. Vérifiez les règles Firebase.");
+            } else {
+                setDbStatus('offline');
+            }
+        }
+      }
+
+      setIsSaving(false);
+    };
+
+    const timeoutId = setTimeout(saveData, 1500); 
+    return () => clearTimeout(timeoutId);
+  }, [projects, studentCount, feeRates, isLoading]);
+
+  const handleResetData = async () => {
+    if (window.confirm("Voulez-vous vraiment réinitialiser toutes les données aux valeurs par défaut ?")) {
+      setProjects(INITIAL_PROJECTS);
+      setStudentCount(INITIAL_STUDENT_COUNT);
+      setFeeRates({});
+      // The useEffect will trigger the save automatically
+    }
+  };
 
   // --- Logic ---
 
@@ -43,35 +187,20 @@ const App: React.FC = () => {
     let accumulatedBalance = 0;
     const yearlyData: YearlyFinancials[] = [];
     
-    // Track revenue evolution year over year
     let currentTotalRevenue = GLOBAL_REVENUE;
 
     YEARS_TO_SIMULATE.forEach(year => {
-      // 1. Calculate Base Capacity
       const baseCapacity = year >= ANEF_YEAR ? BASE_CAPACITY + ANEF_BOOST : BASE_CAPACITY;
-      
-      // 2. Calculate Fee Revenue (Compound Logic)
-      // Get the evolution rate for this specific year (default 0%)
       const yearlyEvolutionRate = feeRates[year] || 0;
-      
-      // Apply evolution to the running total revenue
       currentTotalRevenue = currentTotalRevenue * (1 + (yearlyEvolutionRate / 100));
-      
-      // The "Fee Revenue" available for investment is the delta between 
-      // the new current revenue and the original baseline revenue.
       const feeRevenue = currentTotalRevenue - GLOBAL_REVENUE;
-      
-      // 3. Total Investment Capacity
       const totalCapacity = baseCapacity + feeRevenue;
 
-      // 4. Calculate Expenses for this year
       let currentYearCosts = 0;
       const activeProjectNames: string[] = [];
 
       projects.forEach(p => {
         if (!p.isActive) return;
-        
-        // Check if year falls within project timeline
         if (year >= p.startYear && year < p.startYear + p.durationYears) {
           const yearlyCost = p.totalCost / p.durationYears;
           currentYearCosts += yearlyCost;
@@ -124,6 +253,15 @@ const App: React.FC = () => {
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(amount);
   };
 
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <h2 className="text-lg font-semibold text-slate-700">Chargement des données...</h2>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-12 bg-slate-50/50">
       {/* Header */}
@@ -137,6 +275,35 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+             {/* Sync Status Indicator */}
+             <div className="flex items-center gap-2 mr-4">
+               {isSaving ? (
+                 <span className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+                   <Cloud className="w-3 h-3 animate-pulse" />
+                   Sauvegarde...
+                 </span>
+               ) : dbStatus === 'connected' ? (
+                 <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full" title={`Sauvegardé dans le Cloud à ${lastSaved?.toLocaleTimeString()}`}>
+                   <CheckCircle className="w-3 h-3" />
+                   Cloud Synchro
+                 </span>
+               ) : (
+                 <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full" title="Sauvegarde locale uniquement">
+                   <HardDrive className="w-3 h-3" />
+                   Mode Local
+                 </span>
+               )}
+             </div>
+
+             <button 
+                onClick={handleResetData}
+                className="text-xs flex items-center gap-1 text-slate-400 hover:text-red-500 transition-colors px-3 py-1 rounded-full hover:bg-red-50"
+                title="Réinitialiser toutes les données"
+             >
+               <RotateCcw className="w-3 h-3" />
+               Reset
+             </button>
+             <div className="h-6 w-px bg-slate-200 mx-1"></div>
              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                <Users className="w-4 h-4 text-slate-500" />
                <input 
@@ -153,6 +320,27 @@ const App: React.FC = () => {
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
+        {errorMessage && (
+           <div className={`border-l-4 p-4 mb-6 rounded-r flex justify-between items-center ${errorMessage?.includes('règles') ? 'bg-red-50 border-red-500' : 'bg-amber-50 border-amber-500'}`}>
+            <div className="flex">
+              <div className="flex-shrink-0">
+                {errorMessage?.includes('règles') ? <AlertCircle className="h-5 w-5 text-red-500" /> : <CloudOff className="h-5 w-5 text-amber-500" />}
+              </div>
+              <div className="ml-3">
+                <p className={`text-sm ${errorMessage?.includes('règles') ? 'text-red-700' : 'text-amber-700'}`}>
+                  <strong>{errorMessage?.includes('règles') ? "Action requise sur Firebase" : "Mode hors ligne"} : </strong> 
+                  {errorMessage}
+                  {errorMessage?.includes('règles') && (
+                    <span className="block mt-1 text-xs">
+                        Allez dans l'onglet <strong>Règles</strong> de votre base de données Firestore et mettez <code>allow read, write: if true;</code>
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Top KPIs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -201,6 +389,7 @@ const App: React.FC = () => {
                 <Building2 className="w-5 h-5 text-slate-400" />
                 Projets
               </h2>
+              
               <div className="flex flex-col gap-4">
                 {projects.map(project => (
                   <ProjectCard 
@@ -261,11 +450,20 @@ const App: React.FC = () => {
                 </table>
               </div>
             </div>
+
+            {/* Gantt Chart */}
+            <ProjectGantt 
+                projects={projects} 
+                years={YEARS_TO_SIMULATE} 
+                onPeriodChange={updateProjectPeriod}
+                onToggle={toggleProject}
+            />
+
           </div>
 
           {/* RIGHT: Fee Simulator (3/12 on XL) */}
           <div className="xl:col-span-3">
-            <div className="sticky top-24 h-[calc(100vh-8rem)]">
+            <div className="sticky top-24">
                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <Calculator className="w-5 h-5 text-slate-400" />
                 Financement

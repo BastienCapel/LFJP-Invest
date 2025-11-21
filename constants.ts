@@ -20,7 +20,7 @@ export const INITIAL_PROJECTS: Project[] = [
     isActive: true,
     isVariable: true,
     variableMin: 30000000,
-    variableMax: 60000000,
+    variableMax: 90000000,
     description: 'Salles restantes (Min) ou Bureaux + Solaire (Max)'
   },
   {
