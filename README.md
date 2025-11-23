@@ -25,7 +25,7 @@ Set the following environment variables (locally in `.env.local`, or in Netlify)
 
 | Variable | Purpose |
 | --- | --- |
-| `GEMINI_API_KEY` | API key for Gemini requests. |
+| `VITE_GEMINI_API_KEY` | API key for Gemini requests. |
 | `VITE_FIREBASE_API_KEY` | Firebase API key. |
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain (e.g. `your-project.firebaseapp.com`). |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase project ID. |
@@ -39,7 +39,7 @@ Set the following environment variables (locally in `.env.local`, or in Netlify)
 Configure the environment variables in your Netlify site so the build receives the Firebase and Gemini credentials:
 
 ```bash
-netlify env:set GEMINI_API_KEY <your-gemini-api-key>
+netlify env:set VITE_GEMINI_API_KEY <your-gemini-api-key>
 netlify env:set VITE_FIREBASE_API_KEY <your-firebase-api-key>
 netlify env:set VITE_FIREBASE_AUTH_DOMAIN <your-project.firebaseapp.com>
 netlify env:set VITE_FIREBASE_PROJECT_ID <your-project-id>
