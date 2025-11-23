@@ -2,15 +2,24 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 
-// Configuration provided by the user
+const getEnvVar = (key: keyof ImportMetaEnv) => {
+  const value = import.meta.env[key];
+
+  if (!value) {
+    throw new Error(`Missing required Firebase environment variable: ${key}`);
+  }
+
+  return value;
+};
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAWr-0si1GYXEvmxDk8HNjGI-N-zmK6Bwo",
-  authDomain: "investissements-lfjp.firebaseapp.com",
-  projectId: "investissements-lfjp",
-  storageBucket: "investissements-lfjp.firebasestorage.app",
-  messagingSenderId: "27043603672",
-  appId: "1:27043603672:web:3f55cb09d7c70f7941a3ad",
-  measurementId: "G-7EDM596N7M"
+  apiKey: getEnvVar('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnvVar('VITE_FIREBASE_APP_ID'),
+  measurementId: getEnvVar('VITE_FIREBASE_MEASUREMENT_ID')
 };
 
 // Initialize Firebase (Compat SDK)
