@@ -14,13 +14,14 @@ import ProjectCard from './components/ProjectCard';
 import FinancialChart from './components/FinancialChart';
 import FeeSimulator from './components/FeeSimulator';
 import ProjectGantt from './components/ProjectGantt';
-import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, CheckCircle, AlertCircle, Loader2, CloudOff, HardDrive, ExternalLink } from 'lucide-react';
+import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, CheckCircle, AlertCircle, Loader2, CloudOff, HardDrive, Banknote } from 'lucide-react';
 
 // Firebase imports (Compat SDK)
 import { db } from './firebase';
 
 const SIMULATION_DOC_ID = 'lfjp_current_simulation';
 const LOCAL_STORAGE_KEY = 'lfjp_invest_backup';
+const EXCHANGE_RATE_EUR = 655.957;
 
 const App: React.FC = () => {
   // --- State ---
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [studentCount, setStudentCount] = useState<number>(INITIAL_STUDENT_COUNT);
   const [feeRates, setFeeRates] = useState<Record<number, number>>({});
+  const [currency, setCurrency] = useState<'XOF' | 'EUR'>('XOF');
   
   // Persistence State
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,34 @@ const App: React.FC = () => {
   // Ref to track if the update comes from the DB to prevent echo-saving
   const ignoreRemoteUpdate = useRef(false);
 
+  // --- Helpers ---
+  
+  // Merges saved projects with the codebase's INITIAL_PROJECTS.
+  // This ensures new projects added in code appear in the app, while preserving user edits for existing ones.
+  const mergeProjects = useCallback((savedProjects: Project[]) => {
+    if (!savedProjects || !Array.isArray(savedProjects)) return INITIAL_PROJECTS;
+
+    const savedMap = new Map(savedProjects.map(p => [p.id, p]));
+    
+    return INITIAL_PROJECTS.map(initP => {
+      const savedP = savedMap.get(initP.id);
+      if (savedP) {
+        // Restore user's dynamic values but allow code updates for static things like names/descriptions if needed?
+        // For now, we trust the saved state for values, but maybe we should ensure structure.
+        return {
+          ...initP, // Start with code definition (gets new descriptions/names)
+          isActive: savedP.isActive,
+          totalCost: savedP.totalCost,
+          startYear: savedP.startYear,
+          durationYears: savedP.durationYears,
+          // If the user modified these, we keep them. If not, we fall back to init.
+        };
+      }
+      // If project is in code but not in DB, return the new code project
+      return initP;
+    });
+  }, []);
+
   // --- Integration Logic ---
 
   // 1. Load Data (Real-time Listener from Firebase)
@@ -49,7 +79,7 @@ const App: React.FC = () => {
         if (local) {
              try {
                 const parsed = JSON.parse(local);
-                if (parsed.projects) setProjects(parsed.projects);
+                if (parsed.projects) setProjects(mergeProjects(parsed.projects));
                 if (parsed.studentCount) setStudentCount(parsed.studentCount);
                 if (parsed.feeRates) setFeeRates(parsed.feeRates);
             } catch(e) {}
@@ -69,11 +99,19 @@ const App: React.FC = () => {
         const exists = typeof docSnap.exists === 'function' ? docSnap.exists() : docSnap.exists;
 
         if (exists) {
+          const data = docSnap.data();
+          
+          // Optimization: check if data actually changed to avoid unnecessary re-renders
+          // We can't easily check 'deeply' fast, but we can rely on the fact that if we just saved,
+          // the data coming back is likely the same (except maybe timestamps).
+          
+          // We apply the merge logic immediately
+          const mergedProjects = data.projects ? mergeProjects(data.projects) : INITIAL_PROJECTS;
+          
           // Indicate that the next state changes are from the DB, not the user
           ignoreRemoteUpdate.current = true;
 
-          const data = docSnap.data();
-          if (data.projects) setProjects(data.projects);
+          setProjects(mergedProjects);
           if (data.studentCount) setStudentCount(data.studentCount);
           if (data.feeRates) setFeeRates(data.feeRates);
           
@@ -82,7 +120,10 @@ const App: React.FC = () => {
           setLastSaved(new Date()); // Assume synced if we just got data
           
           // Also update local storage as backup
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
+              ...data,
+              projects: mergedProjects // Save the merged version
+          }));
         } else {
           // Doc doesn't exist yet, create it with defaults later (on save)
           setDbStatus('connected');
@@ -108,7 +149,7 @@ const App: React.FC = () => {
         if (localData) {
             try {
                 const parsed = JSON.parse(localData);
-                if (parsed.projects) setProjects(parsed.projects);
+                if (parsed.projects) setProjects(mergeProjects(parsed.projects));
                 if (parsed.studentCount) setStudentCount(parsed.studentCount);
                 if (parsed.feeRates) setFeeRates(parsed.feeRates);
             } catch (e) {}
@@ -118,7 +159,7 @@ const App: React.FC = () => {
     );
 
     return () => unsub();
-  }, []);
+  }, [mergeProjects]);
 
   // 2. Save Data (Debounced)
   useEffect(() => {
@@ -148,7 +189,9 @@ const App: React.FC = () => {
       if (db) {
         try {
             const docRef = db.collection("simulations").doc(SIMULATION_DOC_ID);
-            await docRef.set(dataToSave);
+            // Use merge: true to avoid overwriting other fields if they exist (though here we control the whole doc)
+            await docRef.set(dataToSave, { merge: true });
+            
             setDbStatus('connected');
             setErrorMessage(null);
             setLastSaved(now);
@@ -264,9 +307,12 @@ const App: React.FC = () => {
     };
   }, [projects, simulationData]);
 
-  const formatMoney = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
+    if (currency === 'EUR') {
+      return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(amount / EXCHANGE_RATE_EUR);
+    }
     return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(amount);
-  };
+  }, [currency]);
 
   if (isLoading) {
     return (
@@ -289,9 +335,19 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-800 hidden sm:block">LFJP Invest <span className="font-normal text-slate-500">| 2026-2030</span></h1>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+             {/* Currency Toggle */}
+             <button 
+                onClick={() => setCurrency(prev => prev === 'XOF' ? 'EUR' : 'XOF')}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors border border-slate-200 text-sm font-semibold text-slate-700 mr-2"
+                title="Changer la devise"
+             >
+                <Banknote className="w-4 h-4 text-slate-500" />
+                <span>{currency === 'XOF' ? 'FCFA' : 'EUR'}</span>
+             </button>
+
              {/* Sync Status Indicator */}
-             <div className="flex items-center gap-2 mr-4">
+             <div className="hidden md:flex items-center gap-2 mr-4">
                {isSaving ? (
                  <span className="flex items-center gap-1.5 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
                    <Cloud className="w-3 h-3 animate-pulse" />
@@ -362,7 +418,7 @@ const App: React.FC = () => {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm text-slate-500 font-medium mb-1">Investissement Total</p>
-                <p className="text-2xl font-bold text-slate-800">{formatMoney(summary.totalInvestment)}</p>
+                <p className="text-2xl font-bold text-slate-800">{formatCurrency(summary.totalInvestment)}</p>
               </div>
               <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Wallet className="w-5 h-5" /></div>
             </div>
@@ -373,7 +429,7 @@ const App: React.FC = () => {
               <div>
                 <p className="text-sm text-slate-500 font-medium mb-1">Manque à gagner (Fin 2030)</p>
                 <p className={`text-2xl font-bold ${summary.fundingGap > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatMoney(summary.fundingGap)}
+                  {formatCurrency(summary.fundingGap)}
                 </p>
               </div>
               <div className={`p-2 rounded-lg ${summary.fundingGap > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
@@ -386,7 +442,7 @@ const App: React.FC = () => {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm text-slate-500 font-medium mb-1">Capacité Totale</p>
-                <p className="text-2xl font-bold text-emerald-600">{formatMoney(summary.totalCapacity)}</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.totalCapacity)}</p>
                 <p className="text-xs text-slate-400 mt-1">Inclut budget + ANEF + % Ecolages</p>
               </div>
               <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600"><Wallet className="w-5 h-5" /></div>
@@ -413,6 +469,7 @@ const App: React.FC = () => {
                     onToggle={toggleProject}
                     onCostChange={updateProjectCost}
                     onPeriodChange={updateProjectPeriod}
+                    formatCurrency={formatCurrency}
                   />
                 ))}
               </div>
@@ -425,7 +482,7 @@ const App: React.FC = () => {
                 <Wallet className="w-5 h-5 text-slate-400" />
                 Analyse Financière
               </h2>
-            <FinancialChart data={simulationData} />
+            <FinancialChart data={simulationData} currency={currency} />
 
             {/* Detailed Table */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -448,16 +505,16 @@ const App: React.FC = () => {
                     {simulationData.map((row) => (
                       <tr key={row.year} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-medium text-slate-700">{row.label}</td>
-                        <td className="px-4 py-3 font-mono text-slate-500 text-xs">{formatMoney(row.baseCapacity)}</td>
+                        <td className="px-4 py-3 font-mono text-slate-500 text-xs">{formatCurrency(row.baseCapacity)}</td>
                         <td className={`px-4 py-3 font-mono text-xs font-semibold ${row.feeRevenue < 0 ? 'text-red-500' : 'text-orange-600'}`}>
-                          {row.feeRevenue > 0 ? '+' : ''}{formatMoney(row.feeRevenue)}
+                          {row.feeRevenue > 0 ? '+' : ''}{formatCurrency(row.feeRevenue)}
                         </td>
-                        <td className="px-4 py-3 font-mono text-blue-600 text-xs">{formatMoney(row.projectCosts)}</td>
+                        <td className="px-4 py-3 font-mono text-blue-600 text-xs">{formatCurrency(row.projectCosts)}</td>
                         <td className={`px-4 py-3 font-mono font-bold text-xs ${row.balance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {formatMoney(row.balance)}
+                          {formatCurrency(row.balance)}
                         </td>
                         <td className={`px-4 py-3 font-mono text-xs ${row.accumulatedBalance >= 0 ? 'text-slate-600' : 'text-red-600'}`}>
-                          {formatMoney(row.accumulatedBalance)}
+                          {formatCurrency(row.accumulatedBalance)}
                         </td>
                       </tr>
                     ))}
@@ -472,6 +529,7 @@ const App: React.FC = () => {
                 years={YEARS_TO_SIMULATE} 
                 onPeriodChange={updateProjectPeriod}
                 onToggle={toggleProject}
+                currency={currency}
             />
 
           </div>
@@ -488,6 +546,7 @@ const App: React.FC = () => {
                 feeRates={feeRates}
                 globalRevenue={GLOBAL_REVENUE}
                 onRateChange={updateFeeRate}
+                formatCurrency={formatCurrency}
               />
             </div>
           </div>

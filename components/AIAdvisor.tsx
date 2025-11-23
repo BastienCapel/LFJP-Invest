@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Sparkles, Loader2, AlertTriangle } from 'lucide-react';
@@ -8,9 +9,10 @@ interface Props {
   yearlyData: YearlyFinancials[];
   projects: Project[];
   studentCount: number;
+  currency: 'XOF' | 'EUR';
 }
 
-const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCount }) => {
+const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCount, currency }) => {
   const [advice, setAdvice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,14 +29,17 @@ const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCoun
 
       const ai = new GoogleGenAI({ apiKey });
       
+      const currencyLabel = currency === 'XOF' ? 'FCFA' : 'EUR';
+      const exchangeRate = currency === 'EUR' ? 655.957 : 1;
+
       // Prepare prompt context
       const activeProjectsList = projects
         .filter(p => p.isActive)
-        .map(p => `- ${p.name}: ${p.totalCost.toLocaleString()} FCFA (${p.startYear}-${p.startYear + p.durationYears})`)
+        .map(p => `- ${p.name}: ${(p.totalCost / exchangeRate).toLocaleString()} ${currencyLabel} (${p.startYear}-${p.startYear + p.durationYears})`)
         .join('\n');
 
       const yearlyBreakdown = yearlyData
-        .map(y => `Year ${y.label}: Cap ${y.investmentCapacity}, Cost ${y.projectCosts}, Bal ${y.balance}`)
+        .map(y => `Year ${y.label}: Cap ${(y.investmentCapacity / exchangeRate).toFixed(0)}, Cost ${(y.projectCosts / exchangeRate).toFixed(0)}, Bal ${(y.balance / exchangeRate).toFixed(0)}`)
         .join('\n');
 
       const prompt = `
@@ -42,14 +47,15 @@ const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCoun
         Analyse le plan d'investissement suivant :
         
         CONTEXTE:
+        - Devise de référence: ${currencyLabel}
         - Nombre d'élèves: ${studentCount}
-        - Déficit Total à financer: ${summary.fundingGap.toLocaleString()} FCFA
+        - Déficit Total à financer: ${(summary.fundingGap / exchangeRate).toLocaleString()} ${currencyLabel}
         - Années déficitaires: ${summary.yearsWithDeficit}
 
         PROJETS ACTIFS:
         ${activeProjectsList}
 
-        DONNÉES ANNUELLES:
+        DONNÉES ANNUELLES (${currencyLabel}):
         ${yearlyBreakdown}
 
         Tâche : Donne une analyse stratégique concise (max 4 phrases) et 3 recommandations par points (bullet points) pour équilibrer ce budget ou gérer la hausse des frais de scolarité (écolages). Sois direct et professionnel.
@@ -70,7 +76,7 @@ const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCoun
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100 shadow-sm">
+    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100 shadow-sm mt-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-indigo-600" />
@@ -102,7 +108,7 @@ const AIAdvisor: React.FC<Props> = ({ summary, yearlyData, projects, studentCoun
       )}
 
       {advice && !loading && (
-        <div className="prose prose-indigo text-sm text-slate-700 bg-white/60 p-4 rounded-lg border border-indigo-100/50">
+        <div className="prose prose-indigo text-sm text-slate-700 bg-white/60 p-4 rounded-lg border border-indigo-100/50 w-full max-w-none">
           <div className="whitespace-pre-line">{advice}</div>
           <button 
             onClick={generateAdvice} 

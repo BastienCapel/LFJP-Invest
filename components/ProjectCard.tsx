@@ -1,16 +1,17 @@
 
 import React from 'react';
 import { Project } from '../types';
-import { Building2, ThermometerSun, Utensils, TreePine, Waves } from 'lucide-react';
+import { Building2, ThermometerSun, Utensils, TreePine, Waves, Sun } from 'lucide-react';
 
 interface Props {
   project: Project;
   onToggle: (id: string) => void;
   onCostChange: (id: string, cost: number) => void;
   onPeriodChange: (id: string, startYear: number, endYear: number) => void;
+  formatCurrency: (amount: number) => string;
 }
 
-const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPeriodChange }) => {
+const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPeriodChange, formatCurrency }) => {
   const getIcon = () => {
     switch (project.id) {
       case 'clim': return <ThermometerSun className="w-5 h-5 text-orange-500" />;
@@ -18,12 +19,9 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
       case 'pool': return <Waves className="w-5 h-5 text-cyan-500" />;
       case 'restauration': return <Utensils className="w-5 h-5 text-red-500" />;
       case 'terrain': return <TreePine className="w-5 h-5 text-green-500" />;
+      case 'solar_sport': return <Sun className="w-5 h-5 text-yellow-500" />;
       default: return <Building2 className="w-5 h-5 text-slate-500" />;
     }
-  };
-
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(amount);
   };
 
   const handleStartYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +99,7 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
           <div className="mt-2 pt-2 border-t border-slate-100">
             <div className="flex justify-between text-xs mb-2">
               <span className="text-slate-500">Budget alloué</span>
-              <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{formatMoney(project.totalCost)}</span>
+              <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{formatCurrency(project.totalCost)}</span>
             </div>
             <input
               type="range"
@@ -114,14 +112,14 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
             <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>{formatMoney(project.variableMin)}</span>
-              <span>{formatMoney(project.variableMax)}</span>
+              <span>{formatCurrency(project.variableMin)}</span>
+              <span>{formatCurrency(project.variableMax)}</span>
             </div>
           </div>
         ) : (
           <div className="flex justify-between text-sm mt-1">
              <span className="text-slate-500">Coût Total:</span>
-             <span className="font-bold text-slate-800">{formatMoney(project.totalCost)}</span>
+             <span className="font-bold text-slate-800">{formatCurrency(project.totalCost)}</span>
           </div>
         )}
       </div>

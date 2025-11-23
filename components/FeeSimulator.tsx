@@ -1,18 +1,16 @@
 
 import React from 'react';
-import { Coins, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 interface Props {
   years: number[];
   feeRates: Record<number, number>;
   globalRevenue: number;
   onRateChange: (year: number, rate: number) => void;
+  formatCurrency: (amount: number) => string;
 }
 
-const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateChange }) => {
-  const formatMoney = (amount: number) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(amount);
-  };
+const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateChange, formatCurrency }) => {
 
   // Calculate total extra revenue over the period using compound logic
   let runningRevenueForTotal = globalRevenue;
@@ -36,7 +34,7 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
           <h3 className="font-bold text-slate-800">Simulation Ecolages</h3>
         </div>
         <p className="text-xs text-slate-600">
-          Base revenus: <span className="font-mono font-semibold text-slate-900">{formatMoney(globalRevenue)}</span>
+          Base revenus: <span className="font-mono font-semibold text-slate-900">{formatCurrency(globalRevenue)}</span>
         </p>
       </div>
 
@@ -69,7 +67,7 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
                   <span className="text-slate-400">%</span>
                 </div>
                 <div className={`w-24 text-right font-mono font-medium text-xs sm:text-sm ${extraAmount >= 0 ? 'text-orange-600' : 'text-red-500'}`}>
-                  {extraAmount > 0 ? '+' : ''}{formatMoney(extraAmount)}
+                  {extraAmount > 0 ? '+' : ''}{formatCurrency(extraAmount)}
                 </div>
               </div>
             );
@@ -80,7 +78,7 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
             <div className="flex justify-between items-center px-1">
             <span className="text-sm font-medium text-slate-600">Cumul généré</span>
             <span className={`font-bold text-lg ${totalExtraRevenue >= 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                {formatMoney(totalExtraRevenue)}
+                {formatCurrency(totalExtraRevenue)}
             </span>
             </div>
         </div>

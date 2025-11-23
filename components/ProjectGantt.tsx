@@ -1,23 +1,29 @@
 
 import React from 'react';
 import { Project } from '../types';
-import { CalendarDays, Sigma, Power, MousePointerClick } from 'lucide-react';
+import { CalendarDays, Sigma, MousePointerClick } from 'lucide-react';
 
 interface Props {
   projects: Project[];
   years: number[];
   onPeriodChange: (id: string, start: number, end: number) => void;
   onToggle: (id: string) => void;
+  currency: 'XOF' | 'EUR';
 }
 
-const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onToggle }) => {
+const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onToggle, currency }) => {
   
+  const exchangeRate = currency === 'EUR' ? 655.957 : 1;
+
   const formatMoneyShort = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}M`;
+    // Convert first
+    const val = amount / exchangeRate;
+
+    if (val >= 1000000) {
+      return `${(val / 1000000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}M`;
     }
-    if (amount === 0) return '-';
-    return (amount / 1000).toFixed(0) + 'k';
+    if (val === 0) return '-';
+    return (val / 1000).toFixed(0) + 'k';
   };
 
   // Helper to handle logic when a year slot is clicked
@@ -50,7 +56,6 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
       onPeriodChange(project.id, currentStart, currentEnd - 1);
     } else {
        // Clicked in the middle -> Do nothing (or could be split, but let's keep it simple)
-       // Optional: Could allow setting this year as ONLY year? No, too destructive.
     }
   };
 
@@ -70,7 +75,7 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
       <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
         <div className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-semibold text-slate-800 text-sm">Calendrier des Dépenses Interactif</h3>
+            <h3 className="font-semibold text-slate-800 text-sm">Calendrier des Dépenses Interactif ({currency})</h3>
         </div>
         <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded">
             <MousePointerClick className="w-3 h-3" />

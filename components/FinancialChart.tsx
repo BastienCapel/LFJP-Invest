@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useMemo } from 'react';
 import {
   ComposedChart,
   Bar,
@@ -16,19 +17,40 @@ import { YearlyFinancials } from '../types';
 
 interface Props {
   data: YearlyFinancials[];
+  currency: 'XOF' | 'EUR';
 }
 
-const formatCurrencyShort = (value: number) => {
-  return `${(value / 1000000).toFixed(0)}M`;
-};
+const FinancialChart: React.FC<Props> = ({ data, currency }) => {
+  
+  const exchangeRate = currency === 'EUR' ? 655.957 : 1;
 
-const FinancialChart: React.FC<Props> = ({ data }) => {
+  // Transform data if currency is EUR so the chart values scale correctly
+  const chartData = useMemo(() => {
+    if (currency === 'XOF') return data;
+    return data.map(d => ({
+      ...d,
+      baseCapacity: d.baseCapacity / exchangeRate,
+      feeRevenue: d.feeRevenue / exchangeRate,
+      investmentCapacity: d.investmentCapacity / exchangeRate,
+      projectCosts: d.projectCosts / exchangeRate,
+      balance: d.balance / exchangeRate,
+      accumulatedBalance: d.accumulatedBalance / exchangeRate
+    }));
+  }, [data, currency, exchangeRate]);
+
+  const formatYAxis = (value: number) => {
+    if (currency === 'EUR') {
+        return `${(value / 1000).toFixed(0)}k`; // 100k
+    }
+    return `${(value / 1000000).toFixed(0)}M`; // 100M
+  };
+
   return (
     <div className="h-80 w-full bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-      <h3 className="text-lg font-semibold text-slate-700 mb-4">Flux de Trésorerie Prévisionnel</h3>
+      <h3 className="text-lg font-semibold text-slate-700 mb-4">Flux de Trésorerie Prévisionnel ({currency})</h3>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
-          data={data}
+          data={chartData}
           margin={{
             top: 20,
             right: 20,
@@ -45,13 +67,13 @@ const FinancialChart: React.FC<Props> = ({ data }) => {
             dy={10}
           />
           <YAxis 
-            tickFormatter={formatCurrencyShort} 
+            tickFormatter={formatYAxis} 
             axisLine={false} 
             tickLine={false}
             tick={{ fill: '#64748b', fontSize: 12 }}
           />
           <Tooltip 
-            formatter={(value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(value)}
+            formatter={(value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: currency, maximumFractionDigits: 0 }).format(value)}
             contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
           />
           <Legend verticalAlign="top" wrapperStyle={{ paddingBottom: '20px' }} />
@@ -73,7 +95,7 @@ const FinancialChart: React.FC<Props> = ({ data }) => {
             radius={[4, 4, 0, 0]} 
             barSize={40}
           >
-             {data.map((entry, index) => (
+             {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.projectCosts > entry.investmentCapacity ? '#ef4444' : '#3b82f6'} />
               ))}
           </Bar>

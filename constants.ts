@@ -37,6 +37,19 @@ export const INITIAL_PROJECTS: Project[] = [
     description: 'Structure de couverture pour le terrain'
   },
   {
+    id: 'solar_sport',
+    name: 'Solaire Terrain Sport',
+    category: 'equipment',
+    totalCost: 55000000,
+    startYear: 2026,
+    durationYears: 1,
+    isActive: true,
+    isVariable: true,
+    variableMin: 45000000,
+    variableMax: 65000000,
+    description: 'Centrale photovoltaïque pour le terrain'
+  },
+  {
     id: 'pool',
     name: 'Piscine',
     category: 'infra',
