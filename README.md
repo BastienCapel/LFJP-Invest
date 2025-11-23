@@ -49,4 +49,6 @@ netlify env:set VITE_FIREBASE_APP_ID <your-app-id>
 netlify env:set VITE_FIREBASE_MEASUREMENT_ID <your-measurement-id>
 ```
 
+These Firebase variables are required for the app to sync with Firestore; if they are absent, the app will stay in local-only mode.
+
 The build command remains `npm run build` and publishes the `dist` directory. Secrets stay in Netlify's environment and are not checked into version control.
