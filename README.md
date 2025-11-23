@@ -52,3 +52,13 @@ netlify env:set VITE_FIREBASE_MEASUREMENT_ID <your-measurement-id>
 These Firebase variables are required for the app to sync with Firestore; if they are absent, the app will stay in local-only mode.
 
 The build command remains `npm run build` and publishes the `dist` directory. Secrets stay in Netlify's environment and are not checked into version control.
+
+## Keeping secrets out of Git
+
+- Never hardcode API keys in the source code; access them through `import.meta.env.VITE_*` as shown in `firebase.ts` and `components/AIAdvisor.tsx`.
+- Keep `.env` and other environment files untracked (the `.gitignore` already ignores them). If you accidentally committed one, clean it with:
+
+```bash
+git rm -r --cached .env*
+git commit -m "Remove env files from Git"
+```
