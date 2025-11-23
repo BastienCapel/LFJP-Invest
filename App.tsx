@@ -17,7 +17,7 @@ import ProjectGantt from './components/ProjectGantt';
 import { Wallet, TrendingDown, Users, Calculator, Building2, RotateCcw, Cloud, CheckCircle, AlertCircle, Loader2, CloudOff, HardDrive, Banknote } from 'lucide-react';
 
 // Firebase imports (Compat SDK)
-import { db } from './firebase';
+import { db, isFirebaseOffline } from './firebase';
 
 const SIMULATION_DOC_ID = 'lfjp_current_simulation';
 const LOCAL_STORAGE_KEY = 'lfjp_invest_backup';
@@ -74,18 +74,25 @@ const App: React.FC = () => {
   // 1. Load Data (Real-time Listener from Firebase)
   useEffect(() => {
     if (!db) {
-        // Fallback if DB init failed entirely
-        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (local) {
-             try {
-                const parsed = JSON.parse(local);
-                if (parsed.projects) setProjects(mergeProjects(parsed.projects));
-                if (parsed.studentCount) setStudentCount(parsed.studentCount);
-                if (parsed.feeRates) setFeeRates(parsed.feeRates);
-            } catch(e) {}
-        }
-        setIsLoading(false);
-        return;
+      // Fallback if DB init failed entirely
+      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          if (parsed.projects) setProjects(mergeProjects(parsed.projects));
+          if (parsed.studentCount) setStudentCount(parsed.studentCount);
+          if (parsed.feeRates) setFeeRates(parsed.feeRates);
+        } catch (e) {}
+      }
+
+      setErrorMessage(
+        isFirebaseOffline
+          ? "Firebase n'est pas configuré (variables d'environnement manquantes). Les données seront uniquement sauvegardées localement."
+          : "Impossible d'initialiser Firebase. Passage en mode local."
+      );
+      setDbStatus('offline');
+      setIsLoading(false);
+      return;
     }
 
     setIsLoading(true);
@@ -159,7 +166,7 @@ const App: React.FC = () => {
     );
 
     return () => unsub();
-  }, [mergeProjects]);
+  }, [mergeProjects, db]);
 
   // 2. Save Data (Debounced)
   useEffect(() => {
