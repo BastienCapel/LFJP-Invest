@@ -8,9 +8,10 @@ interface Props {
   globalRevenue: number;
   onRateChange: (year: number, rate: number) => void;
   formatCurrency: (amount: number) => string;
+  isLocked: boolean;
 }
 
-const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateChange, formatCurrency }) => {
+const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateChange, formatCurrency, isLocked }) => {
 
   // Calculate total extra revenue over the period using compound logic
   let runningRevenueForTotal = globalRevenue;
@@ -62,7 +63,8 @@ const FeeSimulator: React.FC<Props> = ({ years, feeRates, globalRevenue, onRateC
                     step="0.1"
                     value={rate}
                     onChange={(e) => onRateChange(year, parseFloat(e.target.value) || 0)}
-                    className={`w-12 bg-transparent font-bold text-right outline-none ${rate < 0 ? 'text-red-500' : 'text-slate-800'}`}
+                    disabled={isLocked}
+                    className={`w-12 bg-transparent font-bold text-right outline-none disabled:text-slate-400 disabled:cursor-not-allowed ${rate < 0 ? 'text-red-500' : 'text-slate-800'}`}
                   />
                   <span className="text-slate-400">%</span>
                 </div>

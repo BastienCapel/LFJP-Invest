@@ -2,7 +2,7 @@
 import { Project } from './types';
 
 export const INITIAL_STUDENT_COUNT = 630;
-export const BASE_CAPACITY = 70000000; // 70M FCFA
+export const BASE_CAPACITY = 50000000; // 50M FCFA
 export const ANEF_BOOST = 30000000; // 30M FCFA
 export const ANEF_YEAR = 2028; // Starts in 2028
 
@@ -66,13 +66,13 @@ export const INITIAL_PROJECTS: Project[] = [
     id: 'restauration',
     name: 'Restauration Scolaire',
     category: 'infra',
-    totalCost: 300000000,
+    totalCost: 200000000,
     startYear: 2027,
     durationYears: 3,
     isActive: true,
     isVariable: true,
-    variableMin: 250000000,
-    variableMax: 350000000,
+    variableMin: 150000000,
+    variableMax: 250000000,
     description: 'Construction et équipement du réfectoire'
   },
   {
@@ -87,6 +87,19 @@ export const INITIAL_PROJECTS: Project[] = [
     variableMin: 50000000,
     variableMax: 80000000,
     description: 'Extension foncière'
+  },
+  {
+    id: 'extension_p1',
+    name: "Projet d'extension phase 1",
+    category: 'infra',
+    totalCost: 150000000,
+    startYear: 2029,
+    durationYears: 2,
+    isActive: true,
+    isVariable: true,
+    variableMin: 100000000,
+    variableMax: 200000000,
+    description: "Première phase d'extension des bâtiments"
   }
 ];
 

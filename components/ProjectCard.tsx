@@ -9,9 +9,10 @@ interface Props {
   onCostChange: (id: string, cost: number) => void;
   onPeriodChange: (id: string, startYear: number, endYear: number) => void;
   formatCurrency: (amount: number) => string;
+  isLocked: boolean;
 }
 
-const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPeriodChange, formatCurrency }) => {
+const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPeriodChange, formatCurrency, isLocked }) => {
   const getIcon = () => {
     switch (project.id) {
       case 'clim': return <ThermometerSun className="w-5 h-5 text-orange-500" />;
@@ -66,8 +67,9 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
             className="sr-only peer" 
             checked={project.isActive}
             onChange={() => onToggle(project.id)}
+            disabled={isLocked}
           />
-          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}></div>
         </label>
       </div>
 
@@ -79,8 +81,8 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
               type="number" 
               value={project.startYear}
               onChange={handleStartYearChange}
-              disabled={!project.isActive}
-              className="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-400"
+              disabled={isLocked || !project.isActive}
+              className="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
           </div>
           <div className="relative">
@@ -89,8 +91,8 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
               type="number" 
               value={endYear}
               onChange={handleEndYearChange}
-              disabled={!project.isActive}
-              className="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-400"
+              disabled={isLocked || !project.isActive}
+              className="w-full px-3 py-2 text-sm font-medium border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -108,8 +110,8 @@ const ProjectCard: React.FC<Props> = ({ project, onToggle, onCostChange, onPerio
               step={1000000}
               value={project.totalCost}
               onChange={(e) => onCostChange(project.id, Number(e.target.value))}
-              disabled={!project.isActive}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              disabled={isLocked || !project.isActive}
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div className="flex justify-between text-[10px] text-slate-400 mt-1">
               <span>{formatCurrency(project.variableMin)}</span>

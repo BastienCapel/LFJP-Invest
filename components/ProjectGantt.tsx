@@ -9,9 +9,10 @@ interface Props {
   onPeriodChange: (id: string, start: number, end: number) => void;
   onToggle: (id: string) => void;
   currency: 'XOF' | 'EUR';
+  isLocked: boolean;
 }
 
-const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onToggle, currency }) => {
+const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onToggle, currency, isLocked }) => {
   
   const exchangeRate = currency === 'EUR' ? 655.957 : 1;
 
@@ -28,6 +29,8 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
 
   // Helper to handle logic when a year slot is clicked
   const handleYearClick = (project: Project, clickedYear: number) => {
+    if (isLocked) return;
+
     // 1. If inactive, activate and set start/end to clicked year
     if (!project.isActive) {
       onPeriodChange(project.id, clickedYear, clickedYear);
@@ -71,16 +74,23 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
   });
 
   return (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
+    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 ${isLocked ? 'cursor-not-allowed opacity-90' : ''}`}>
       <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
         <div className="flex items-center gap-2">
             <CalendarDays className="w-5 h-5 text-indigo-600" />
             <h3 className="font-semibold text-slate-800 text-sm">Calendrier des Dépenses Interactif ({currency})</h3>
         </div>
-        <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded">
-            <MousePointerClick className="w-3 h-3" />
-            <span>Cliquez sur les cases pour modifier</span>
-        </div>
+        {!isLocked && (
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                <MousePointerClick className="w-3 h-3" />
+                <span>Cliquez sur les cases pour modifier</span>
+            </div>
+        )}
+        {isLocked && (
+             <div className="text-[10px] text-red-400 font-medium bg-red-50 px-2 py-1 rounded">
+                Lecture seule
+            </div>
+        )}
       </div>
 
       {/* Header Years */}
@@ -98,11 +108,36 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
           const endYear = project.startYear + project.durationYears - 1;
           const isActive = project.isActive;
 
+          // Determine color based on project ID
+          let colorClass = 'bg-blue-500';
+          switch (project.id) {
+             case 'clim': 
+             case 'solar_sport':
+                 colorClass = 'bg-[#16A34A]'; // Vert clair / Vert
+                 break;
+             case 'sport_cover': 
+             case 'pool':
+             case 'restauration':
+                 colorClass = 'bg-[#1E40AF]'; // Bleu foncé
+                 break;
+             case 'terrain':
+                 colorClass = 'bg-[#15803D]'; // Vert foncé
+                 break;
+             case 'extension_p1':
+                 colorClass = 'bg-[#7C3AED]'; // Violet
+                 break;
+             default:
+                // Fallback category logic
+                if (project.category === 'equipment') colorClass = 'bg-orange-500';
+                else if (project.category === 'land') colorClass = 'bg-green-500';
+                else colorClass = 'bg-blue-500';
+          }
+
           return (
-            <div key={project.id} className={`group transition-opacity ${isActive ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}>
+            <div key={project.id} className={`group transition-opacity ${isActive ? 'opacity-100' : 'opacity-50'} ${!isLocked && !isActive ? 'hover:opacity-80' : ''}`}>
               {/* Project Name */}
               <div className="flex items-center gap-2 mb-1 px-1">
-                <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-slate-300'}`}></div>
+                <div className={`w-2 h-2 rounded-full ${isActive ? colorClass : 'bg-slate-300'}`}></div>
                 <div className="text-xs font-medium text-slate-700 truncate flex-1" title={project.name}>
                     {project.name}
                 </div>
@@ -116,18 +151,13 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
                   const isStart = year === project.startYear;
                   const isEnd = year === endYear;
 
-                  // Determine color based on project category (visual cue)
-                  let bgClass = 'bg-blue-500';
-                  if (project.category === 'equipment') bgClass = 'bg-orange-500';
-                  if (project.category === 'land') bgClass = 'bg-green-500';
-
                   if (!isFilled) {
                     return (
                         <div 
                             key={year} 
                             onClick={() => handleYearClick(project, year)}
-                            className="rounded-sm hover:bg-slate-200 cursor-pointer transition-colors"
-                            title="Cliquer pour activer ou étendre"
+                            className={`rounded-sm transition-colors ${!isLocked ? 'hover:bg-slate-200 cursor-pointer' : 'cursor-not-allowed'}`}
+                            title={!isLocked ? "Cliquer pour activer ou étendre" : ""}
                         />
                     );
                   }
@@ -137,14 +167,15 @@ const ProjectGantt: React.FC<Props> = ({ projects, years, onPeriodChange, onTogg
                       key={year} 
                       onClick={() => handleYearClick(project, year)}
                       className={`
-                        ${bgClass} 
+                        ${colorClass} 
                         relative flex items-center justify-center 
                         text-[9px] font-bold text-white 
-                        shadow-sm transition-all cursor-pointer hover:opacity-80
+                        shadow-sm transition-all
                         ${isStart ? 'rounded-l-md' : 'rounded-l-sm'}
                         ${isEnd ? 'rounded-r-md' : 'rounded-r-sm'}
+                        ${!isLocked ? 'cursor-pointer hover:opacity-80' : 'cursor-not-allowed'}
                       `}
-                      title={`${formatMoneyShort(yearlyCost)} - Cliquer pour réduire`}
+                      title={!isLocked ? `${formatMoneyShort(yearlyCost)} - Cliquer pour réduire` : formatMoneyShort(yearlyCost)}
                     >
                       {formatMoneyShort(yearlyCost)}
                     </div>
